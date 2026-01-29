@@ -91,8 +91,7 @@ file(REMOVE_RECURSE "${CMAKE_CURRENT_BINARY_DIR}/bin/tmp")
 # =============================================================================
 install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/nrngui ${PROJECT_BINARY_DIR}/bin/neurondemo
                  ${PROJECT_BINARY_DIR}/bin/nrnivmodl ${PROJECT_BINARY_DIR}/bin/nrnivmodl-cmake
-                 ${PROJECT_BINARY_DIR}/bin/nrnivmodl.py
-        DESTINATION ${NRN_INSTALL_DATA_PREFIX}bin)
+                 ${PROJECT_BINARY_DIR}/bin/nrnivmodl.py DESTINATION ${NRN_INSTALL_DATA_PREFIX}bin)
 if(NRN_ENABLE_CORENEURON)
   install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/nrnivmodl-all-cmake
           DESTINATION ${NRN_INSTALL_DATA_PREFIX}bin)
