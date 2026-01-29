@@ -26,14 +26,18 @@ env = os.environ.copy()
 bin_dir = platform.machine()
 
 # The name of the current program
-program_name = Path(sys.argv[0]).name
+program_path = Path(sys.argv[0]).resolve(strict=True)
+program_name = program_path.name
 
 # Where the `*.cmake` files are located
-if args.CMAKE_PREFIX_PATH
+if args.CMAKE_PREFIX_PATH:
     cmake_prefix = Path(args.CMAKE_PREFIX_PATH)
 else:
-    cmake_prefix = Path(sys.argv[0]).resolve().parent.parent.joinpath("lib").joinpath("cmake")
+    cmake_prefix = program_path.parent.parent.joinpath("lib").joinpath("cmake")
 env["CMAKE_PREFIX_PATH"] = cmake_prefix
+
+# Get the install root for NEURON and the NMODL project
+env["NMODLHOME"] = program_path.parent.parent
 
 # On MacOS we need to set the deployment target to be equal to the one of NEURON
 if shutil.which("xcrun") is not None:
@@ -86,5 +90,4 @@ run(["cmake", "-S", str(src_dir), "-B", str(bin_dir),
     env=env, check=True)
 
 # Process and compile the mod files
-env["NMODLHOME"] = "@CMAKE_INSTALL_PREFIX@"
 run(["cmake", "--build", str(bin_dir)], env=env, check=True)
