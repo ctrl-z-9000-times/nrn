@@ -1,9 +1,7 @@
 #!/usr/bin/python
-
 """
-Simple wrapper for CMake that builds mechanisms from mod files
+Compile mechanisms for NEURON
 """
-
 from pathlib import Path
 from subprocess import run
 from argparse import ArgumentParser
@@ -12,9 +10,14 @@ import platform
 import shutil
 import sys
 
-parser = ArgumentParser()
-parser.add_argument("MOD_FILES", nargs="*", help="")
+parser = ArgumentParser(description=__doc__)
+parser.add_argument("FILES", nargs="*", help="mod files or directory with mod files")
 parser.add_argument("--CMAKE_PREFIX_PATH", type=Path, default=None, help="")
+# TODO: arguments for nrnivmodl
+# -coreneuron                      Compile MOD files for CoreNEURON using nrnivmodl-core.
+# -incflags    "include flags"     Extra include flags and paths when MOD (C++) files are compiled.
+# -loadflags   "link flags"        Extra link flags, paths, and libraries when MOD (C++) files are linked.
+# -nmodlflags  "CLI flags"         Additional CLI flags for new NMODL transpiler
 args = parser.parse_args()
 
 env = os.environ.copy()
@@ -26,13 +29,21 @@ bin_dir = platform.machine()
 program_name = Path(sys.argv[0]).name
 
 # Where the `*.cmake` files are located
-cmake_prefix = Path(sys.argv[0]).resolve().parent.parent.joinpath("lib").joinpath("cmake")
+if args.CMAKE_PREFIX_PATH
+    cmake_prefix = Path(args.CMAKE_PREFIX_PATH)
+else:
+    cmake_prefix = Path(sys.argv[0]).resolve().parent.parent.joinpath("lib").joinpath("cmake")
 env["CMAKE_PREFIX_PATH"] = cmake_prefix
 
 # On MacOS we need to set the deployment target to be equal to the one of NEURON
 if shutil.which("xcrun") is not None:
-    @NRN_OSX_BUILD_TRUE@ env["SDKROOT"] = "$(xcrun --sdk macosx --show-sdk-path)"
-    @NRN_OSX_BUILD_TRUE@ env["MACOSX_DEPLOYMENT_TARGET"] = "@CMAKE_OSX_DEPLOYMENT_TARGET@"
+    if "@NRN_OSX_BUILD_TRUE@" != "#":
+        env["SDKROOT"] = subprocess.run(["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                    check=True,
+                    text=True,
+                    capture_output=True
+                    ).stdout.strip()
+        env["MACOSX_DEPLOYMENT_TARGET"] = "@CMAKE_OSX_DEPLOYMENT_TARGET@"
     if not "@CMAKE_OSX_DEPLOYMENT_TARGET@":
         del env["MACOSX_DEPLOYMENT_TARGET"]
 
@@ -40,15 +51,21 @@ if shutil.which("xcrun") is not None:
 # to deal with any pre-existing CMakeLists.txt in the current directory
 src_dir = cmake_prefix.joinpath("neuron").joinpath("nrnivmodl")
 
-mod_files = [Path(path) for path in args.MOD_FILES]
+mod_files = [Path(path) for path in args.FILES]
 
 # In case of no files, default to using the files in the current dir
 if not mod_files:
+    print(f"[{program_name}] Collecting mod files in current directory: {Path.cwd()}")
     mod_files = list(Path.cwd().glob("*.mod"))
 
 # In case of a single input, check if it's a directory; if it is, collect all mod files in it
 elif len(mod_files) == 1 and mod_files[0].is_dir():
+    print(f"[{program_name}] Collecting mod files in directory: {mod_files[0]}")
     mod_files = list(mod_files[0].glob("*.mod"))
+
+else:
+    mod_files_str = ' '.join(str(path) for path in mod_files)
+    print(f"[{program_name}] Collecting mod files: {mod_files_str}")
 
 # Convert all mod file paths to absolute paths because the source dir is in the NEURON install
 mod_files = [path.resolve() for path in mod_files]
@@ -59,8 +76,6 @@ for path in mod_files:
         print(f"[{program_name}] ERROR: Mod file {path} does not exist!", file=sys.stderr)
         exit(1)
 
-# print(f"[{program_name}] Collecting mod files under %s\n" "$(readlink -f "${1}")")
-
 mod_files_str = ";".join(str(path) for path in mod_files)
 
 # Configure the mod files
@@ -70,6 +85,6 @@ run(["cmake", "-S", str(src_dir), "-B", str(bin_dir),
     "-DNRNIVMODL_CORENEURON=@NRNIVMODL_CORENEURON@"],
     env=env, check=True)
 
-# Actually build them
+# Process and compile the mod files
 env["NMODLHOME"] = "@CMAKE_INSTALL_PREFIX@"
 run(["cmake", "--build", str(bin_dir)], env=env, check=True)
