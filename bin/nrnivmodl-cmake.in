@@ -12,6 +12,8 @@ bindir="$(uname -m)"
 # The name of the current program
 program_name="$(basename "${0}")"
 
+CMAKE_INSTALL_PREFIX="$(readlink -f "$(dirname "${0}")/../")"
+
 # Where the `*.cmake` files are located
 NRN_CMAKE_PREFIX_PATH_DEFAULT="$(readlink -f "$(dirname "${0}")/../lib/cmake/")"
 if [ -n "${CMAKE_PREFIX_PATH:-}" ]; then
@@ -71,4 +73,4 @@ cmake \
     -DNRNIVMODL_CORENEURON=@NRNIVMODL_CORENEURON@
 
 # Actually build them
-NMODLHOME=@CMAKE_INSTALL_PREFIX@ cmake --build "${bindir}"
+NMODLHOME="${CMAKE_INSTALL_PREFIX}" cmake --build "${bindir}"
