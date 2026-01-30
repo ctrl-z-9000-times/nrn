@@ -223,8 +223,8 @@ function(create_nrnmech)
 
   message("${MESSAGE_PRIORITY}" "MECHANISM_NAME | ${MECHANISM_NAME}")
 
-  # the `nmodl` executable is usually found through `find_program` on the user's
-  # system, but we allow overrides (for testing purposes only)
+  # the `nmodl` executable is usually found through `find_program` on the user's system, but we
+  # allow overrides (for testing purposes only)
   if(NRN_MECH_NMODL_EXECUTABLE)
     set(NMODL_EXECUTABLE "${NRN_MECH_NMODL_EXECUTABLE}")
   else()
@@ -366,9 +366,8 @@ function(create_nrnmech)
       list(APPEND L_MECH_REGISTRE "_${MOD_STUB}_reg()\;")
 
       add_custom_command(
-        COMMAND ${ENV_COMMAND} NMODL_PYLIB=${Python_LIBRARIES}
-                ${NEURON_TRANSPILER_LAUNCHER} -o "${ARTIFACTS_OUTPUT_DIR}/cpp"
-                "${MOD_ABSPATH}" ${NRN_MECH_NMODL_NEURON_EXTRA_ARGS}
+        COMMAND ${ENV_COMMAND} NMODL_PYLIB=${Python_LIBRARIES} ${NEURON_TRANSPILER_LAUNCHER} -o
+                "${ARTIFACTS_OUTPUT_DIR}/cpp" "${MOD_ABSPATH}" ${NRN_MECH_NMODL_NEURON_EXTRA_ARGS}
         OUTPUT "${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         COMMENT "Converting ${MOD_ABSPATH} to ${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         # TODO some mod files may include other files, and NMODL can get the AST of a given file in
@@ -439,9 +438,10 @@ function(create_nrnmech)
       list(APPEND L_CORE_MECH_REGISTRE "_${MOD_STUB}_reg()\;")
 
       add_custom_command(
-        COMMAND ${ENV_COMMAND} NMODL_PYLIB=${Python_LIBRARIES}
-                ${NMODL_EXECUTABLE} -o "${ARTIFACTS_OUTPUT_DIR}/cpp_core"
-                "${MOD_ABSPATH}" ${NRN_MECH_NMODL_CORENEURON_EXTRA_ARGS}
+        COMMAND
+          ${ENV_COMMAND} NMODL_PYLIB=${Python_LIBRARIES} ${NMODL_EXECUTABLE} -o
+          "${ARTIFACTS_OUTPUT_DIR}/cpp_core" "${MOD_ABSPATH}"
+          ${NRN_MECH_NMODL_CORENEURON_EXTRA_ARGS}
         OUTPUT "${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         COMMENT "Converting ${MOD_ABSPATH} to ${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         DEPENDS "${MOD_ABSPATH}"
