@@ -280,6 +280,14 @@ function(create_nrnmech)
     set(NRN_MECH_NMODL_NEURON_EXTRA_ARGS)
   endif()
 
+  # find libpython.so/dll if it will be needed
+  if(NRN_MECH_NMODL_NEURON_CODEGEN OR NRN_MECH_CORENEURON)
+    find_package(Python 3.9 REQUIRED COMPONENTS Development.Embed)
+    if(NOT Python_Development.Embed_FOUND)
+      message("FATAL_ERROR" "Embedded python not found")
+    endif()
+  endif()
+
   list(JOIN NRN_MECH_NMODL_NEURON_EXTRA_ARGS "" NMODL_NEURON_EXTRA_ARGS_SPACES)
   message("${MESSAGE_PRIORITY}" "NMODL_NEURON_EXTRA_ARGS | ${NMODL_NEURON_EXTRA_ARGS_SPACES}")
 
@@ -396,8 +404,8 @@ function(create_nrnmech)
       list(APPEND L_MECH_REGISTRE "_${MOD_STUB}_reg()\;")
 
       add_custom_command(
-        COMMAND ${ENV_COMMAND} ${NEURON_TRANSPILER_LAUNCHER} -o "${ARTIFACTS_OUTPUT_DIR}/cpp"
-                "${MOD_ABSPATH}" ${NRN_MECH_NMODL_NEURON_EXTRA_ARGS}
+        COMMAND ${ENV_COMMAND} NMODL_PYLIB="${Python_LIBRARIES}" ${NEURON_TRANSPILER_LAUNCHER} -o
+                "${ARTIFACTS_OUTPUT_DIR}/cpp" "${MOD_ABSPATH}" ${NRN_MECH_NMODL_NEURON_EXTRA_ARGS}
         OUTPUT "${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         COMMENT "Converting ${MOD_ABSPATH} to ${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         # TODO some mod files may include other files, and NMODL can get the AST of a given file in
@@ -468,8 +476,10 @@ function(create_nrnmech)
       list(APPEND L_CORE_MECH_REGISTRE "_${MOD_STUB}_reg()\;")
 
       add_custom_command(
-        COMMAND ${ENV_COMMAND} ${NMODL_EXECUTABLE} -o "${ARTIFACTS_OUTPUT_DIR}/cpp_core"
-                "${MOD_ABSPATH}" ${NRN_MECH_NMODL_CORENEURON_EXTRA_ARGS}
+        COMMAND
+          ${ENV_COMMAND} NMODL_PYLIB="${Python_LIBRARIES}" ${NMODL_EXECUTABLE} -o
+          "${ARTIFACTS_OUTPUT_DIR}/cpp_core" "${MOD_ABSPATH}"
+          ${NRN_MECH_NMODL_CORENEURON_EXTRA_ARGS}
         OUTPUT "${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         COMMENT "Converting ${MOD_ABSPATH} to ${ARTIFACTS_OUTPUT_DIR}/${CPP_FILE}"
         DEPENDS "${MOD_ABSPATH}"
