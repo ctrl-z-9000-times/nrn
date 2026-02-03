@@ -1,0 +1,182 @@
+#!/usr/bin/python
+"""
+Compile mechanisms for NEURON
+
+This program accepts .mod files, translates them into C++, compiles them into
+binaries, and links them with NEURON. The resulting libraries and executables
+are placed in the current working directly.
+"""
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from find_libpython import find_libpython
+from pathlib import Path
+from subprocess import run
+import os
+import platform
+import shutil
+import sys
+
+env = os.environ.copy()
+arch = platform.machine()
+
+# Get the name and location of the current program
+program_path = Path(sys.argv[0]).resolve(strict=True)
+program_name = program_path.name
+program_dir  = program_path.parent
+program_root = program_dir.parent # root (aka prefix) of installation
+
+def print(text):
+    __builtins__.print(f"[{program_name}] {text}", flush=True)
+
+def error(text, code):
+    __builtins__.print(f"[{program_name}] ERROR: {text}", file=sys.stderr, flush=True)
+    exit(code)
+
+# Setup neuron's environment variables, while checking for user overrides
+if "NRNHOME" in env:
+    prefix      = Path(env["NRNHOME"])
+    exec_prefix = prefix / arch
+    bindir      = prefix / "bin"
+    libdir      = prefix / "lib"
+else:
+    prefix      = Path("@prefix@")
+    exec_prefix = Path("@exec_prefix@")
+    bindir      = Path("@bindir@")
+    libdir      = Path("@libdir@")
+
+if "NRNHOME_EXEC" in env:
+    exec_prefix = Path(env["NRNHOME_EXEC"])
+    bindir      = exec_prefix / "bin"
+    libdir      = exec_prefix / "lib"
+
+env["prefix"] = prefix
+env["bindir"] = bindir
+env["libdir"] = libdir
+
+# Setup coreneuron's install root
+if "CORENRNHOME" in env:
+    cnrn_prefix = Path(env["CORENRNHOME"])
+else:
+    # Fallback to this program's install root, since they are shipped together
+    cnrn_prefix = program_root
+
+# Find where the `*.cmake` files are located
+nrn_cmake_prefix_default = program_root.joinpath("lib").joinpath("cmake")
+if "CMAKE_PREFIX_PATH" in env:
+    env["CMAKE_PREFIX_PATH"] += ":" + nrn_cmake_prefix_default
+else:
+    env["CMAKE_PREFIX_PATH"] = nrn_cmake_prefix_default
+
+# Set the install root for the NMODL project
+if "NMODLHOME" not in env:
+    env["NMODLHOME"] = program_root
+
+# Search for libpython.so/dll, for the NMODL transpiler to embed
+env["NMODL_PYLIB"] = libpython = find_libpython()
+if not libpython:
+    error("unable to locate libpython, please make sure to install the development version of python", 3)
+
+# On MacOS we need to set the deployment target to be equal to the one of NEURON
+if shutil.which("xcrun") is not None:
+    OSX_BUILD = "@NRN_OSX_BUILD_TRUE@" != "#"
+    if OSX_BUILD:
+        env["SDKROOT"] = subprocess.run(["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                    check=True,
+                    text=True,
+                    capture_output=True
+                    ).stdout.strip()
+        env["MACOSX_DEPLOYMENT_TARGET"] = "@CMAKE_OSX_DEPLOYMENT_TARGET@"
+    if not "@CMAKE_OSX_DEPLOYMENT_TARGET@":
+        del env["MACOSX_DEPLOYMENT_TARGET"]
+
+# 
+parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpFormatter)
+
+parser.add_argument("-v", "--verbose", action="count", help="")
+
+parser.add_argument("--nmodl", action="store_true",
+    help="Use the new NMODL transpiler instead of nocmodl")
+
+parser.add_argument("--nmodl_args", type=str, default="",
+    help="list of additional arguments to pass to NMODL for NEURON codegen")
+
+parser.add_argument("--coreneuron", action="store_true",
+    help="Compile MOD files for CoreNEURON")
+
+parser.add_argument("--coreneuron_args", type=str, default="",
+    help="list of additional arguments to pass to NMODL for CoreNEURON codegen")
+
+parser.add_argument("--library_type", choices=["static", "shared"], default="shared",
+    help="")
+
+parser.add_argument("--env", type=str, default="",
+    help="additional environmental variables")
+
+parser.add_argument("FILES", nargs="*",
+    help="mod files or a directory of mod files. Defaults to the current working directory")
+args = parser.parse_args()
+
+# Where the CMakeLists.txt is installed to
+src_dir = nrn_cmake_prefix_default.joinpath("neuron").joinpath("nrnbuild")
+
+# Where the output files will be placed
+bin_dir = Path.cwd() / arch
+
+# Collect up the nmodl files.
+mod_files = [Path(path) for path in args.FILES]
+
+# In case of no files, default to using the files in the current dir
+if not mod_files:
+    print(f"Collecting mod files from current directory: {Path.cwd()}")
+    mod_files = list(Path.cwd().glob("*.mod"))
+
+# In case of a single input, check if it's a directory; if it is, collect all mod files in it
+elif len(mod_files) == 1 and mod_files[0].is_dir():
+    print(f"Collecting mod files in directory: {mod_files[0]}")
+    mod_files = list(mod_files[0].glob("*.mod"))
+
+# Otherwise assume all arguments are mod files.
+else:
+    mod_files_str = ' '.join(str(path) for path in mod_files)
+    print(f"Collecting mod files: {mod_files_str}")
+
+# Convert all mod file paths to absolute paths to avoid the user's current working directory
+mod_files = [path.resolve() for path in mod_files]
+
+# After collecting the mod files, check each mod file actually exists
+for path in mod_files:
+    if not path.exists():
+        error(f"File does not exist \"{path}\"", 1)
+    if path.is_dir():
+        error(f"Expected file, found directory: \"{path}\"", 1)
+
+mod_files_str = ";".join(str(path) for path in mod_files)
+
+# Configure the cmake project
+if args.verbose:
+    print("Configuring mechanisms ...")
+def cmake_bool(arg):
+    return "ON" if arg else "OFF"
+config_command = [
+    "cmake",
+    "-S",
+    str(src_dir),
+    "-B",
+    str(bin_dir),
+    "-DNRNBUILD_MOD_FILES=" + mod_files_str,
+    "-DLIBRARY_TYPE=" + args.library_type.upper(),
+    "-DNRNBUILD_NEURON=" + cmake_bool(True),
+    "-DNRNBUILD_CORENEURON=" + cmake_bool(args.coreneuron),
+    "-DNRNBUILD_SPECIAL=" + cmake_bool(True),
+    "-DNRNBUILD_NMODL=" + cmake_bool(args.nmodl),
+    # f'-DNRNBUILD_NMODL_ARGS="{args.nmodl_args}"',
+    # f'-DNRNBUILD_CORENEURON_ARGS="{args.coreneuron_args}"',
+    # f'-DNRNBUILD_ENV="{args.env}"'
+]
+if args.verbose:
+    config_command.append("--debug-output")
+run(config_command, env=env, check=True)
+
+# Process and compile the mod files
+if args.verbose:
+    print("Building mechanisms ...")
+run(["cmake", "--build", str(bin_dir)], env=env, check=True)
