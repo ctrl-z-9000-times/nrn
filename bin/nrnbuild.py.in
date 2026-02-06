@@ -20,17 +20,20 @@ parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpF
 
 parser.add_argument("-v", "--verbose", action="store_true", help="")
 
+parser.add_argument("--clean", action="store_true",
+    help="Remove the build cache before starting")
+
 parser.add_argument("--nmodl", action="store_true",
     help="Use the new NMODL transpiler instead of nocmodl")
 
 parser.add_argument("--nmodl_args", type=str,
-    help="list of additional arguments to pass to NMODL for NEURON codegen")
+    help="String of additional arguments to pass to NMODL for NEURON codegen")
 
 parser.add_argument("--coreneuron", action="store_true",
     help="Compile MOD files for CoreNEURON")
 
 parser.add_argument("--coreneuron_args", type=str,
-    help="list of additional arguments to pass to NMODL for CoreNEURON codegen")
+    help="String of additional arguments to pass to NMODL for CoreNEURON codegen")
 
 parser.add_argument("--library_type", choices=["static", "shared"], default="shared",
     help="")
@@ -95,10 +98,6 @@ env["NMODL_PYLIB"] = libpython = find_libpython()
 if not libpython:
     error("unable to locate libpython, please make sure to install the development version of python", 3)
 
-if args.verbose and args.nmodl:
-    print(f"NMODLHOME={program_root}")
-    print(f"NMODL_PYLIB={libpython}")
-
 # On MacOS we need to set the deployment target to be equal to the one of NEURON
 if shutil.which("xcrun") is not None:
     OSX_BUILD = "@NRN_OSX_BUILD_TRUE@" != "#"
@@ -124,6 +123,11 @@ src_dir = nrn_cmake_prefix_default.joinpath("neuron").joinpath("nrnbuild")
 
 # Where the output files will be placed
 bin_dir = Path.cwd() / arch
+
+if args.clean and bin_dir.exists():
+    if args.verbose:
+        print(f"Removing build cache: {bin_dir}")
+    shutil.rmtree(bin_dir)
 
 # Collect up the nmodl files.
 mod_files = [Path(path) for path in args.FILES]
@@ -184,5 +188,8 @@ run(config_command, env=env, check=True)
 build_command = ["cmake", "--build", str(bin_dir)]
 if args.verbose:
     build_command.append("--verbose")
+    if args.nmodl:
+        print(f"NMODLHOME={program_root}")
+        print(f"NMODL_PYLIB={libpython}")
     print(' '.join(build_command))
 run(build_command, env=env, check=True)
