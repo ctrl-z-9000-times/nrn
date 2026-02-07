@@ -23,6 +23,9 @@ parser.add_argument("-v", "--verbose", action="store_true", help="")
 parser.add_argument("--clean", action="store_true",
     help="Remove the build cache before starting")
 
+parser.add_argument("-j", "--parallel", nargs="?", type=int, const=True, default=None,
+    help="Use multiple CPU cores for faster compilation")
+
 parser.add_argument("--nmodl", action="store_true",
     help="Use the new NMODL transpiler instead of nocmodl")
 
@@ -186,6 +189,11 @@ run(config_command, env=env, check=True)
 
 # Process and compile the mod files
 build_command = ["cmake", "--build", str(bin_dir)]
+if args.parallel:
+    if args.parallel is True:
+        build_command.append("--parallel")
+    else:
+        build_command.extend(("--parallel", str(args.parallel)))
 if args.verbose:
     build_command.append("--verbose")
     if args.nmodl:
