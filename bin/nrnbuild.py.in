@@ -15,39 +15,39 @@ import platform
 import shutil
 import sys
 
-# 
 parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpFormatter)
 
-parser.add_argument("-v", "--verbose", action="store_true", help="")
+parser.add_argument("-v", "--verbose", action="store_true",
+    help="show diagnostics")
 
 parser.add_argument("--clean", action="store_true",
-    help="Remove the build cache before starting")
+    help="remove the build cache before starting")
 
 parser.add_argument("-j", "--parallel", nargs="?", type=int, const=True, default=None,
-    help="Use multiple CPU cores for faster compilation")
+    help="use multiple CPU cores for faster compilation")
 
 parser.add_argument("--nmodl", action="store_true",
-    help="Use the new NMODL transpiler instead of nocmodl")
+    help="use the new NMODL transpiler instead of nocmodl")
 
 parser.add_argument("--nmodl_args", type=str,
-    help="String of additional arguments to pass to NMODL for NEURON codegen")
+    help="additional arguments for NMODL for NEURON codegen")
 
 parser.add_argument("--coreneuron", action="store_true",
-    help="Compile MOD files for CoreNEURON")
+    help="compile MOD files for CoreNEURON")
 
 parser.add_argument("--coreneuron_args", type=str,
-    help="String of additional arguments to pass to NMODL for CoreNEURON codegen")
+    help="additional arguments for NMODL for CoreNEURON codegen")
 
 parser.add_argument("--library_type", choices=["static", "shared"], default="shared",
-    help="")
+    help="default: shared")
 
 parser.add_argument("--env", type=str,
-    help="additional environmental variables")
+    help="additional environmental variables for NMODL")
 
 parser.add_argument("FILES", nargs="*",
     help="mod files or a directory of mod files. Defaults to the current working directory")
-args = parser.parse_args()
 
+args = parser.parse_args()
 env = os.environ.copy()
 arch = platform.machine()
 

@@ -32,13 +32,13 @@ set(NRNBUILD_LIBRARY_TYPE
   CACHE STRING "Either STATIC or SHARED")
 set(NRNBUILD_NMODL_ARGS
   ""
-  CACHE STRING "")
+  CACHE STRING "extra arguments to pass to NMODL for NEURON codegen")
 set(NRNBUILD_CORENEURON_ARGS
   ""
-  CACHE STRING "")
+  CACHE STRING "extra arguments to pass to NMODL for CoreNEURON codegen")
 set(NRNBUILD_ENV
   ""
-  CACHE STRING "")
+  CACHE STRING "extra environment variables for NMODL")
 
 set(NRNBUILD_ARGS)
 if(NRNBUILD_NEURON)
